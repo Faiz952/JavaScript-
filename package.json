@@ -1,0 +1,32 @@
+{
+  "name": "y",
+  "version": "1.0.0",
+  "main": "axios.js",
+  "dependencies": {
+    "@babel/parser": "^7.19.1",
+    "@babel/traverse": "^7.19.1",
+    "co": "^4.6.0",
+    "cron-parser": "^4.6.0",
+    "crypto-js": "^4.1.1",
+    "extend2": "^1.0.1",
+    "math.js": "^1.1.46",
+    "mocha": "^10.1.0",
+    "moment": "^2.29.3",
+    "mssql": "^8.1.2",
+    "mysql": "^2.18.1",
+    "node-schedule": "^2.1.1",
+    "node-uuid": "^1.4.8",
+    "openai": "^3.2.1",
+    "oracledb": "^5.5.0",
+    "promises-aplus-tests": "^2.1.2",
+    "puppeteer": "^19.8.5",
+    "thunkify": "^2.1.2",
+    "ws": "^8.13.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "xiongten",
+  "license": "ISC",
+  "description": ""
+}
