@@ -1,5 +1,4 @@
 const fs = require('fs')
-const co = require('co')
 function readFileByPromise(pars) {
     return new Promise((resolve, reject) => {
         fs.readFile(...pars, (err, data) => {

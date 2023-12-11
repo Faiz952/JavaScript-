@@ -2,8 +2,11 @@
 
 class MyPromise {
     constructor (executor) {
+        // this 的初始状态
         this.status = MyPromise.PENDING
+        // 当 this 完成后要执行的函数们
         this.onFulfilleds = []
+        // 当 this 拒绝后要执行的函数们
         this.onRejecteds = []
         // 根据传入的 value 解决当前环境下的 promise（this）
         const resolve = (value) => {
@@ -56,24 +59,32 @@ class MyPromise {
     }
     then (onFulfilled, onRejected) {
         const promise2 = new MyPromise((resolve, reject) => {
+            // 如果 onFulfilled 不是函数，舍弃，用新函数代替
             if (typeof onFulfilled !== 'function') {
                 onFulfilled = function (value) {
                     return value
                 }
             }
+            // 如果 onRejected 不是函数，舍弃，用新函数代替
             if (typeof onRejected !== 'function') {
                 onRejected = function (reason) {
                     throw reason
                 }
             }
+            // this 有三种状态，分别处理
             switch (this.status) {
+                // 如果 this 是 PENDING 状态，
+                // 把 包装后的 onFulfilled 和 onRejected 丢入 this 自带的 onFulfilleds 和 onRejected
                 case MyPromise.PENDING:
                     this.onFulfilleds.push(() => {
+                        // 将 this 完成后执行的函数包裹成微任务
                         process.nextTick(() => {
                             try {
                                 const x = onFulfilled(this.value)
+                                // 用 onFulfilled 执行后的返回值完成此时 then 函数调用生成的 promise
                                 resolve(x)
                             } catch (e) {
+                                // 如果 onFulfilled 函数报错，用报错信息直接拒绝此时 then 函数调用生成的 promise
                                 reject(e)
                             }
                         })

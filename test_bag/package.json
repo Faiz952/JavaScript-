@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "@tl/crypto": "^1.2.1",
     "@tl/ling-mysqldb": "^1.0.1"
   },
   "devDependencies": {},

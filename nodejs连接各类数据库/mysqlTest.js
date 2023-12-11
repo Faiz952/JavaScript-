@@ -1,19 +1,15 @@
 'use strict'
 const mysql = require('mysql');
 const connection = mysql.createConnection({
-    host: '121.37.132.231',
-    port: '4321',
+    host: '192.168.15.133',
+    port: 3306,
     user: 'root',
-    password: 'kpPassword@1',
-    database: 'jxsyrk',
-    timezone: "08:00",
-    dateStrings: true,
-    multipleStatements: true
+    password: 'TL#dsj!nwcsj1513323622',
+    database: 'test'
 });
-
 connection.connect();
 
-connection.query('SELECT max(name) as x from tlv_bzdz', function (error, results, fields) {
+connection.query('SELECT * from test', function (error, results, fields) {
     if (error) throw error;
     console.log(results);
 });

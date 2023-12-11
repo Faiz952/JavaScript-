@@ -1,28 +1,24 @@
 const sql = require('mssql')
 
-const sqlConfig = {
+// 配置数据库连接
+const config = {
+    server: '192.168.22.252',
     user: 'sa',
-    password: 'x.t199876',
-    database: 'SQJW',
-    server: '192.168.253.128',
-    pool: {
-        max: 10,
-        min: 0,
-        idleTimeoutMillis: 30000
-    },
+    password: 'tldsj!ms252sql*DB',
+    // database: 'SQJW',
     options: {
-        encrypt: true, // for azure
-        trustServerCertificate: true // change to true for local dev / self-signed certs
-    }
-}
+        encrypt: false, // 关闭TLS加密连接
+    },
+};
 
 async function test() {
     try {
         // make sure that any items are correctly URL encoded in the connection string
-        await sql.connect(sqlConfig)
+        await sql.connect(config)
+        console.log(await sql.query(`use sqjw`))
+        // await sql.query(`use dbo;`)
         const result = await sql.query(`select * from sqjw_bhrw`)
-        let s = `insert into sqjw_bhrw (sqjw_name )values('${result.recordset[0].CreatedOn}')`
-        console.log(await sql.query(s))
+        console.log(result)
     } catch (err) {
         console.log(err)
     }
