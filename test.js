@@ -1,2 +1,6 @@
-const map = new Map([['zs', 'ls'], ['zzz', 'ssss']])
-console.log(map)
+let a  =9
+
+do {
+  let c
+  console.log(a)
+} while (a--)

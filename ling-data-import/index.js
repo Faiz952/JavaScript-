@@ -32,26 +32,91 @@ let obj = {
   'targetDbConfig': '目标数据库连接配置',
   'targetDbSchema': '目标数据库的dbSchema', // 可选，不填会使用默认的schema。mysql无schema，不填
   'targetTable': '目标表',
-  'queryInfo': {
-    'type': 'select' || 'selectWithJoin', // 执行数据库查询的方法
-    'info': ['table', 'options'] // 方法的参数
+  'queryInfo': { // 传入的查询信息应该只负责查询出本次要同步的数据，不应该涉及分页与排序
+    'type': 'select' || 'selectWithJoin',
+    'info': ['table', 'options']
   },
-  'timestampField': '时间戳字段', // 记录此次同步的数据的最新时间
+  'timestampField': '时间戳字段', // 如果是全量同步：指定分页查询时排序的字段（有时间戳用时间戳，没时间戳用其他可以排序的字段）；如果是增量同步，指定源表的时间戳字段
   'fieldsMap': new Map([['sourTabFie1', 'tarTabFie1'], ['sourTabFie2', 'tarTabFie2']]), // 源表字段与目标表字段对应关系
   'sourcePrimaryKey': '源表主键' || ['源表主键1', '源表主键2', '源表主键3...'], // 单字段主键用字符串，多字段主键用数组
   'runTime': '同步时间',
   'enable': '是否开启',
   'importType': '全量同步'||'增量同步',
-};
+  'pageSize': '1000' // 同步分页大小，默认1000
+}
 async function dataImport(obj) {
   // 源数据库连接
   const sourceCon = await getCon(obj.sourceDbType, obj.sourceDbConfig)
   // 目标数据库连接
   const targetCon = await getCon(obj.targetDbType, obj.targetDbConfig)
-  // 获取源表数据
-  const sourceData = await getData(obj, sourceCon)
-  // 插入数据到目标表
-  await outputData(sourceData, obj, targetCon)
+  // 给 options 添加排序属性
+  obj.queryInfo.info.options.order = [[obj.timestampField, 'asc']]
+  // 若未指定分页大小，则默认 1000
+  obj.queryInfo.info.options.limit = obj.pageSize || 1000
+  // 是否指定 schema
+  let table = ''
+  if (obj.targetDbSchema) {
+    table = obj.targetDbSchema + '.' + obj.targetTable
+  } else {
+    table = obj.targetTable
+  }
+  let timestamp = ''
+  if (obj.importType === '全量同步') {
+    // 先清空表
+    await targetCon.query(`delete from ${table}`)
+    // 初始页码
+    let page = 0
+    do {
+      obj.queryInfo.info.options.offset = page * obj.pageSize
+      // 调用数据库组件对应方法查出数据
+      const result = await sourceCon[obj.queryInfo.type](...obj.queryInfo.info)
+      // 插入数据
+      for (const row of result) {
+        const targetRow = {}
+        for (const key of Object.keys(row)) {
+          if (obj.fieldsMap.get(key)) {
+            targetRow[obj.fieldsMap.get(key)] = row[key]
+          }
+        }
+        await targetCon.insert(table, targetRow)
+      }
+      if (result.length < obj.pageSize) break
+      page++
+    } while (true)
+  }
+  if (obj.importType === '增量同步') {
+    // 每次分页查询的结果
+    let queryResult = []
+    // 初始页码
+    let page = 0
+    // 初始页码
+    do {
+      obj.queryInfo.info.options.offset = page * obj.pageSize
+      // 调用数据库组件对应方法查出数据
+      const result = await sourceCon[obj.queryInfo.type](...obj.queryInfo.info)
+      // 插入数据
+      for (const row of result) {
+        // 去重
+        await deleteByPrimaryKey(targetCon, obj.targetTable, obj.sourcePrimaryKey, row, obj.fieldsMap)
+        const targetRow = {}
+        for (const key of Object.keys(row)) {
+          if (obj.fieldsMap.get(key)) {
+            targetRow[obj.fieldsMap.get(key)] = row[key]
+          }
+        }
+        await targetCon.insert(table, targetRow)
+      }
+      if (result.length === 0) break
+      if (result.length && result.length < obj.pageSize) {
+        // 更新时间戳
+        timestamp = result[result.length-1][obj.timestampField]
+        break
+      }
+      timestamp = result[result.length-1][obj.timestampField]
+      page++
+    } while (true)
+  }
+  return timestamp
 }
 
 async function getData(obj, sourceCon) {
@@ -67,39 +132,7 @@ async function getData(obj, sourceCon) {
   return sourceData
 }
 async function outputData(sourceData, obj, targetCon) {
-  // 是否指定 schema
-  let table = ''
-  if (obj.targetDbSchema) {
-    table = obj.targetDbSchema + '.' + obj.targetTable
-  } else {
-    table = obj.targetTable
-  }
-  if (obj.importType === '全量同步') {
-    // 先清空表
-    await targetCon.query(`delete from ${table}`)
-    for (const row of sourceData) {
-      const targetRow = {}
-      for (const key of Object.keys(row)) {
-        if (obj.fieldsMap.get(key)) {
-          targetRow[obj.fieldsMap.get(key)] = row[key]
-        }
-      }
-      await targetCon.insert(table, targetRow)
-    }
-  } else if (obj.importType === '增量同步') {
-    for (const row of sourceData) {
-      // 根据主键去重
-      await deleteByPrimaryKey(targetCon, table, obj.sourcePrimaryKey, row, obj.fieldsMap)
-      const targetRow = {}
-      for (const key of Object.keys(row)) {
-        if (obj.fieldsMap.get(key)) {
-          targetRow[obj.fieldsMap.get(key)] = row[key]
-        }
-      }
-      await targetCon.insert(table, targetRow)
-      await insertRow(targetRow, table, targetCon, obj.targetDbType)
-    }
-  }
+
 }
 
 /**
