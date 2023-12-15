@@ -50,9 +50,9 @@ async function dataImport(obj) {
   // 目标数据库连接
   const targetCon = await getCon(obj.targetDbType, obj.targetDbConfig)
   // 给 options 添加排序属性
-  obj.queryInfo.info.options.order = [[obj.timestampField, 'asc']]
+  obj.queryInfo.info[1].order = [[obj.timestampField, 'asc']]
   // 若未指定分页大小，则默认 1000
-  obj.queryInfo.info.options.limit = obj.pageSize || 1000
+  obj.queryInfo.info[1].limit = obj.pageSize || 1000
   // 是否指定 schema
   let table = ''
   if (obj.targetDbSchema) {
@@ -67,7 +67,7 @@ async function dataImport(obj) {
     // 初始页码
     let page = 0
     do {
-      obj.queryInfo.info.options.offset = page * obj.pageSize
+      obj.queryInfo.info[1].offset = page * obj.pageSize
       // 调用数据库组件对应方法查出数据
       const result = await sourceCon[obj.queryInfo.type](...obj.queryInfo.info)
       // 插入数据
@@ -78,6 +78,7 @@ async function dataImport(obj) {
             targetRow[obj.fieldsMap.get(key)] = row[key]
           }
         }
+        console.log(targetRow)
         await targetCon.insert(table, targetRow)
       }
       if (result.length < obj.pageSize) break
@@ -85,19 +86,26 @@ async function dataImport(obj) {
     } while (true)
   }
   if (obj.importType === '增量同步') {
-    // 每次分页查询的结果
-    let queryResult = []
     // 初始页码
     let page = 0
     // 初始页码
     do {
-      obj.queryInfo.info.options.offset = page * obj.pageSize
+      obj.queryInfo.info[1].offset = page * obj.pageSize
       // 调用数据库组件对应方法查出数据
       const result = await sourceCon[obj.queryInfo.type](...obj.queryInfo.info)
       // 插入数据
       for (const row of result) {
         // 去重
-        await deleteByPrimaryKey(targetCon, obj.targetTable, obj.sourcePrimaryKey, row, obj.fieldsMap)
+        const where = {
+          condition: {}
+        }
+        {
+          for (const primaryKey of obj.sourcePrimaryKey) {
+            const key = obj.fieldsMap.get(primaryKey)
+            where.condition.key = row[primaryKey]
+          }
+        }
+        targetCon.delete(obj.targetTable, where)
         const targetRow = {}
         for (const key of Object.keys(row)) {
           if (obj.fieldsMap.get(key)) {
