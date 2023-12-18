@@ -33,16 +33,16 @@ let obj = {
   'queryInfo': { // 传入的查询信息应该只负责查询出本次要同步的数据，不应该涉及分页与排序
     'type': 'select',
     'info': ['yourtablename', {columns: ['*'], where:{condition: {
-          createdon: {"gte": '2023-11-16 16:38:23'} //条件放在where里面就拼接在主条件where中
+          createdon: {"gte": '2023-12-18 15:51:06.163'} //条件放在where里面就拼接在主条件where中
         }}}]
   },
   'timestampField': 'createdon', // 如果是全量同步：指定源表分页查询时排序的字段（有时间戳用时间戳，没时间戳用其他可以排序的字段）；如果是增量同步，指定源表的时间戳字段
-  'fieldsMap': new Map([['id', 'sqjw_id'], ['name', 'sqjw_name'],['floating', 'sqjw_floating'],['createdon', 'createdon'],[['uuid', 'sqjw_uuid']]]), // 源表字段与目标表字段对应关系
+  'fieldsMap': new Map([['id', 'sqjw_id'], ['name', 'sqjw_name'],['floating', 'sqjw_floating'],['createdon', 'createdon'],['uuid', 'sqjw_uuid']]), // 源表字段与目标表字段对应关系
   'sourcePrimaryKey': 'uuid', // 单字段主键用字符串，多字段主键用数组
   'runTime': '同步时间',
-  'enable': '是否开启',
-  'importType': '全量同步',
-  'pageSize': '1000' // 同步分页大小，默认1000
+  'enable': '是',
+  'importType': '增量同步',
+  'pageSize': '5' // 同步分页大小，默认1000
 }
 imp(obj).then((x) => {
   console.log(x)

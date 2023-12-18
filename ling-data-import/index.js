@@ -3,7 +3,6 @@ const mysql = require('@tl/ling-mysqldb')
 const mssql = require('@tl/ling-mssqldb')
 const oracle = require('@tl/ling-oracledb')
 const moment = require('moment')
-
 async function getCon(type, config) {
   // 数据库连接对象
   let con = null
@@ -49,8 +48,6 @@ async function dataImport(obj) {
   const sourceCon = await getCon(obj.sourceDbType, obj.sourceDbConfig)
   // 目标数据库连接
   const targetCon = await getCon(obj.targetDbType, obj.targetDbConfig)
-  // 给 options 添加排序属性
-  obj.queryInfo.info[1].order = [[obj.timestampField, 'asc']]
   // 若未指定分页大小，则默认 1000
   obj.queryInfo.info[1].limit = obj.pageSize || 1000
   // 是否指定 schema
@@ -60,9 +57,12 @@ async function dataImport(obj) {
   } else {
     table = obj.targetTable
   }
-  let timestamp = ''
   if (obj.importType === '全量同步') {
-    // 先清空表
+    // 给 options 添加排序属性
+    if (obj.timestampField) {
+      obj.queryInfo.info[1].order = [[obj.timestampField, 'asc']]
+    }
+    // 清空表
     await targetCon.query(`delete from ${table}`)
     // 初始页码
     let page = 0
@@ -75,10 +75,11 @@ async function dataImport(obj) {
         const targetRow = {}
         for (const key of Object.keys(row)) {
           if (obj.fieldsMap.get(key)) {
-            targetRow[obj.fieldsMap.get(key)] = row[key]
+            targetRow[obj.fieldsMap.get(key)] = row[key] instanceof Date
+              ? moment(row[key]).format('YYYY-MM-DD HH:mm:ss')
+              : row[key]
           }
         }
-        console.log(targetRow)
         await targetCon.insert(table, targetRow)
       }
       if (result.length < obj.pageSize) break
@@ -86,6 +87,14 @@ async function dataImport(obj) {
     } while (true)
   }
   if (obj.importType === '增量同步') {
+    // 给 options 添加排序属性
+    if (obj.timestampField) {
+      obj.queryInfo.info[1].order = [[obj.timestampField, 'asc']]
+    } else {
+      throw new Error('[ling-data-import]:未指定时间戳字段。')
+    }
+    // 同步的最后一条时间戳
+    let timestamp = undefined
     // 初始页码
     let page = 0
     // 初始页码
@@ -99,17 +108,25 @@ async function dataImport(obj) {
         const where = {
           condition: {}
         }
+        if (!obj.sourcePrimaryKey) {
+          throw new Error('[ling-data-import]:源表未指定主键。')
+        }
+        if (!Array.isArray(obj.sourcePrimaryKey)) {
+          obj.sourcePrimaryKey = [obj.sourcePrimaryKey]
+        }
         {
           for (const primaryKey of obj.sourcePrimaryKey) {
             const key = obj.fieldsMap.get(primaryKey)
-            where.condition.key = row[primaryKey]
+            where.condition[key] = row[primaryKey]
           }
         }
         targetCon.delete(obj.targetTable, where)
         const targetRow = {}
         for (const key of Object.keys(row)) {
           if (obj.fieldsMap.get(key)) {
-            targetRow[obj.fieldsMap.get(key)] = row[key]
+            targetRow[obj.fieldsMap.get(key)] = row[key] instanceof Date
+              ? moment(row[key]).format('YYYY-MM-DD HH:mm:ss')
+              : row[key]
           }
         }
         await targetCon.insert(table, targetRow)
@@ -123,97 +140,7 @@ async function dataImport(obj) {
       timestamp = result[result.length-1][obj.timestampField]
       page++
     } while (true)
-  }
-  return timestamp
-}
-
-async function getData(obj, sourceCon) {
-  // 从源表获取数据
-  let sourceData = null
-  if (obj.queryInfo.type) {
-    // 调用数据库组件对应方法
-    sourceData = await sourceCon[obj.queryInfo.type](...obj.queryInfo.info)
-  } else {
-    // 直接执行sql语句
-    sourceData = sourceCon.query(obj.queryInfo.info)
-  }
-  return sourceData
-}
-async function outputData(sourceData, obj, targetCon) {
-
-}
-
-/**
- * 往指定表插入一条记录
- * @param {object} targetRow 记录信息
- * @param {string} table 表名
- * @param {object} targetCon 目标数据库连接
- * @param {string} dbType 目标数据库类型
- * @return {Promise<void>}
- */
-async function insertRow(targetRow, table, targetCon, dbType) {
-  // 插入指定表sql字段列表字符串
-  let fields = '';
-  // 插入指定表sql值列表字符串
-  let values = '';
-  // 循环拼接
-  for (const dataInstanceKey in targetRow) {
-    fields = fields + dataInstanceKey + ',';
-    if (targetRow[dataInstanceKey] instanceof Date) {
-      // oracle 的日期转换需特殊处理
-      if (dbType.toLowerCase() === 'oracle') {
-        values = values
-          + `TO_DATE('${moment(targetRow[dataInstanceKey]).format('YYYY-MM-DD HH:mm:ss')}', 'YYYY-MM-DD HH24:MI:SS')`
-          + ','
-      } else {
-        values = values + "'"+moment(targetRow[dataInstanceKey]).format('YYYY-MM-DD HH:mm:ss')+"'" + ','
-      }
-    } else {
-      values = values + `${targetRow[dataInstanceKey] === null ? null : "'"+ targetRow[dataInstanceKey]+"'"}` + ','
-    }
-  }
-  // 去掉尾部','号
-  fields = fields.slice(0, -1);
-  // 去掉尾部','号
-  values = values.slice(0, -1);
-  // 拼接sql
-  const sql = `
-			insert into ${table} (
-				${fields}
-			) values (
-			  ${values}
-			)
-	`;
-  await targetCon.query(sql)
-}
-
-/**
- * 根据主键删除记录
- * @param dbCon 数据库连接
- * @param table 表名
- * @param primaryKey 主键
- * @param row 一条记录
- * @param fieldsMap 源表与目标表 map
- */
-async function deleteByPrimaryKey(dbCon, table, primaryKey, row, fieldsMap) {
-  if (Array.isArray(obj.sourcePrimaryKey) && obj.sourcePrimaryKey.length > 0) {
-    // 根据主键查询记录是否存在
-    let sql = `select 1 from ${table} where `
-    const whereSql = []
-    for (const primaryKey of obj.sourcePrimaryKey) {
-      const key = fieldsMap.get(primaryKey)
-      // 主键类型一般都是字符串或数字
-      whereSql.push(`${key} = ` + typeof row[primaryKey] === 'string' ? "'" + row[primaryKey] + "'" : row[primaryKey])
-    }
-    sql = sql + whereSql.join(' AND ')
-    await dbCon.query(sql)
-  } else if (typeof primaryKey === 'string') {
-    let sql = `select 1 from ${table} where `
-    const key = fieldsMap.get(primaryKey)
-    // 主键类型一般都是字符串或数字
-    sql = sql + `${key} = ` + typeof row[primaryKey] === 'string' ? "'" + row[primaryKey] + "'" : row[primaryKey]
-    await dbCon.query(sql)
+    return timestamp && moment(timestamp).format('YYYY-MM-DD HH:mm:ss')
   }
 }
-
 module.exports = dataImport

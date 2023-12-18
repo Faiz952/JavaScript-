@@ -1,7 +1,7 @@
 const dm = require('@tl/ling-dmdb')
 const mysql = require('@tl/ling-mysqldb')
 const mssql = require('@tl/ling-mssqldb')
-const oracle = require('../ling-oracledb')
+const oracle = require('@tl/ling-oracledb')
 const moment = require("moment");
 'use strict';
 const client = new dm({
@@ -34,10 +34,12 @@ const config_sqjw_test = {
 
 async function mssqlQuery() {
   const pool = await mssql.get('sqjw_test', config_sqjw_test)
-  const result = await pool.query('select * from test_xt3')
-  console.log(result)
+  const result = await pool.query('select top 1 * from yourtablename order by createdon desc')
+  console.log(new Date())
+  console.log(result[0].createdon)
+  console.log(moment(result[0].createdon).format('YYYY-MM-DD HH:mm:ss'))
 }
-// mssqlQuery()
+mssqlQuery()
 
 const db = new mysql({
   host: '192.168.15.133',
@@ -57,7 +59,7 @@ async function mysqlQuery() {
   // const res1 = await db.get("sys_user", where)
   console.log(await db.query('select * from test'))
 }
-mysqlQuery()
+// mysqlQuery()
 
 async function oracleQuery() {
 

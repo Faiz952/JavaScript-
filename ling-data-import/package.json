@@ -1,0 +1,19 @@
+{
+  "name": "@tl/ling-data-import",
+  "version": "1.0.0",
+  "description": "根据配置信息做各类数据库表的同步",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "xiongten",
+  "license": "MIT",
+  "dependencies": {
+    "@tl/ling-dmdb": "^1.1.7",
+    "@tl/ling-mssqldb": "^1.0.6",
+    "@tl/ling-mysqldb": "^1.0.4",
+    "@tl/ling-oracledb": "^1.0.0",
+    "moment": "^2.29.3"
+  }
+}
