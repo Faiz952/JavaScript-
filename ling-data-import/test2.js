@@ -1,4 +1,1 @@
-const dm = require('@tl/ling-dmdb')
-const mysql = require('@tl/ling-mysqldb')
-const mssql = require('@tl/ling-mssqldb')
-const oracle = require('@tl/ling-oracledb')
+console.log(String(new Error('我报错了哦')))

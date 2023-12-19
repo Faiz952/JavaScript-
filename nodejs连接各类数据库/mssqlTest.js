@@ -8,6 +8,7 @@ const config = {
     // database: 'SQJW',
     options: {
         encrypt: false, // 关闭TLS加密连接
+
     },
 };
 

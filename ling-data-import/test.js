@@ -29,12 +29,13 @@ const config_sqjw_test = {
      * 是否开启TLS加密连接，如果要开启，而且你的node版本>=12，server属性值必须为域名，不支持ip地址格式。
      */
     encrypt: false,
+    useUTC: false
   },
 };
 
 async function mssqlQuery() {
   const pool = await mssql.get('sqjw_test', config_sqjw_test)
-  const result = await pool.query('select top 1 * from yourtablename order by createdon desc')
+  const result = await pool.query('select * from test_imp where sqjw_id=1496 ')
   console.log(new Date())
   console.log(result[0].createdon)
   console.log(moment(result[0].createdon).format('YYYY-MM-DD HH:mm:ss'))
